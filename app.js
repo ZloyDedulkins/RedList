@@ -4,7 +4,8 @@ const CONFIG = {
   mainSheetGid: null,
   feedbackForm: {
     baseUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfXFCl2TKFHFKdXwYQmIsVpKpSvzUJE4YkaDHkHHzyVOb8yAw/viewform',
-    fioEntryId: '2005620554'
+    fioEntryId: '1750988741',
+    
   },
   mainColumns: {
     fio: 'Физическое лицо',
@@ -103,8 +104,12 @@ function resolveFeedbackFormEntryId() {
 function buildFeedbackFormUrl(fio) {
   const entryId = resolveFeedbackFormEntryId();
   const params = new URLSearchParams({
-    usp: 'header',
+    usp: 'pp_url',
     [`entry.${entryId}`]: fio
+  });
+
+  Object.entries(CONFIG.feedbackForm.staticEntries || {}).forEach(([id, value]) => {
+    params.set(`entry.${id}`, value);
   });
 
   return `${CONFIG.feedbackForm.baseUrl}?${params.toString()}`;
