@@ -196,7 +196,8 @@ function renderRows(rows) {
       <td>${row.fio}</td>
       <td>${row.department}</td>
       <td>${row.position}</td>
-      <td>${row.lastPassInfo}</td>
+      <td>${row.lastPassDateText}</td>
+      <td>${row.daysSinceLastPassText}</td>
     `;
     resultBodyEl.appendChild(tr);
   });
@@ -263,15 +264,15 @@ async function init() {
         const position = String(row[positionKey] ?? '').trim() || '—';
         const lastPassDate = parseDate(row[lastPassDateKey]);
         const daysSinceLastPass = getDaysSince(lastPassDate);
-        const lastPassInfo = lastPassDate
-          ? `${lastPassDate.toLocaleDateString('ru-RU')}, ${daysSinceLastPass} дн.`
-          : '—';
+        const lastPassDateText = lastPassDate ? lastPassDate.toLocaleDateString('ru-RU') : '—';
+        const daysSinceLastPassText = Number.isInteger(daysSinceLastPass) ? String(daysSinceLastPass) : '—';
 
         return {
           fio,
           department,
           position,
-          lastPassInfo
+          lastPassDateText,
+          daysSinceLastPassText
         };
       });
 
