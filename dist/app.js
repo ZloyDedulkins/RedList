@@ -91,10 +91,19 @@ function buildGvizUrl({ sheetName, sheetGid }) {
   return `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?${params.toString()}`;
 }
 
+
+function resolveFeedbackFormEntryId() {
+  const params = new URLSearchParams(window.location.search);
+  const fromUrl = params.get('formEntryId');
+  const fromGlobal = window.FEEDBACK_FORM_ENTRY_ID;
+
+  return String(fromUrl || fromGlobal || CONFIG.feedbackForm.fioEntryId).trim();
+}
+
 function buildFeedbackFormUrl(fio) {
   const params = new URLSearchParams({
     usp: 'pp_url',
-    [`entry.${CONFIG.feedbackForm.fioEntryId}`]: fio
+    [`entry.${resolveFeedbackFormEntryId()}`]: fio
   });
 
   return `${CONFIG.feedbackForm.baseUrl}?${params.toString()}`;
