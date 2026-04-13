@@ -24,6 +24,23 @@ function normalizeKey(value) {
   return String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function createDepartmentLookupKeys(value) {
+  const base = normalizeKey(value);
+  if (!base) return [];
+
+  const compact = base
+    .replace(/\u00a0/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/[«»"'`]/g, '')
+    .replace(/[–—−-]+/g, ' ')
+    .replace(/[(){}[\],.;:/\\|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const noSpaces = compact.replace(/\s+/g, '');
+  return [...new Set([base, compact, noSpaces].filter(Boolean))];
+}
+
 function parseGoogleVisualization(text) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
@@ -181,10 +198,15 @@ function buildBridgeMap(bridgeRows) {
 
   const map = new Map();
   bridgeRows.forEach((row) => {
-    const src = normalizeKey(row[sourceKey || fallbackSource]);
+    const src = row[sourceKey || fallbackSource];
     const dst = String(row[targetKey || fallbackTarget] ?? '').trim();
-    if (src && dst) {
-      map.set(src, dst);
+    const lookupKeys = createDepartmentLookupKeys(src);
+    if (lookupKeys.length && dst) {
+      lookupKeys.forEach((key) => {
+        if (!map.has(key)) {
+          map.set(key, dst);
+        }
+      });
     }
   });
 
@@ -255,7 +277,12 @@ async function init() {
       .filter(({ row, parsedDate }) => sameDay(parsedDate, maxDate) && isCommentEmpty(row[commentKey]))
       .map(({ row }) => {
         const rawDepartment = String(row[departmentKey] ?? '').trim();
-        const department = bridgeMap.get(normalizeKey(rawDepartment)) || rawDepartment || '—';
+        const department =
+          createDepartmentLookupKeys(rawDepartment)
+            .map((key) => bridgeMap.get(key))
+            .find(Boolean) ||
+          rawDepartment ||
+          '—';
         const fio = String(row[fioKey] ?? '').trim() || '—';
 
         return {
