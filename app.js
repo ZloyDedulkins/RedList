@@ -203,6 +203,28 @@ function toRuDateOrDash(date) {
   return date ? date.toLocaleDateString('ru-RU') : '—';
 }
 
+function buildPersonStats(rowsWithDate, fioKey) {
+  const stats = new Map();
+
+  rowsWithDate.forEach(({ row, parsedDate }) => {
+    const personKey = normalizeKey(row[fioKey]);
+    if (!personKey) return;
+
+    const existing = stats.get(personKey);
+    if (!existing) {
+      stats.set(personKey, { firstDate: parsedDate, count: 1 });
+      return;
+    }
+
+    if (parsedDate < existing.firstDate) {
+      existing.firstDate = parsedDate;
+    }
+    existing.count += 1;
+  });
+
+  return stats;
+}
+
 function setStatus(tab, message, isError = false) {
   const { statusEl } = ui[tab];
   statusEl.textContent = message;
@@ -281,6 +303,7 @@ async function init() {
     const maxDate = rowsWithDate.reduce((max, item) => (item.parsedDate > max ? item.parsedDate : max), rowsWithDate[0].parsedDate);
 
     const maxDateRows = rowsWithDate.filter(({ parsedDate }) => sameDay(parsedDate, maxDate));
+    const personStats = buildPersonStats(rowsWithDate, fioKey);
 
     const noFeedbackRows = maxDateRows
       .filter(({ row }) => isCommentEmpty(row[reasonKey]) && isCommentEmpty(row[statusKey]))
@@ -318,21 +341,32 @@ async function init() {
     const historyRows = maxDateRows
       .filter(({ row }) => peopleOnEarlierDates.has(normalizeKey(row[fioKey])))
       .map(({ row, parsedDate }) => ({
+        personKey: normalizeKey(row[fioKey]),
         exportDateText: toRuDateOrDash(parsedDate),
         fio: toDisplay(row[fioKey]),
+        firstSeenDateText: '—',
+        entryCountText: '—',
         department: toDisplay(row[departmentKey]),
         position: toDisplay(row[positionKey]),
         lastPassDateText: toRuDateOrDash(parseDate(row[lastPassDateKey])),
         state: stateKey ? toDisplay(row[stateKey]) : '—',
         reason: toDisplay(row[reasonKey]),
         status: toDisplay(row[statusKey])
-      }));
+      }))
+      .map((row) => {
+        const stat = personStats.get(row.personKey);
+        return {
+          ...row,
+          firstSeenDateText: toRuDateOrDash(stat?.firstDate ?? null),
+          entryCountText: Number.isInteger(stat?.count) ? String(stat.count) : '—'
+        };
+      });
 
     if (!historyRows.length) {
       setStatus('history', 'На максимальную дату нет сотрудников, которые встречались в более ранних выгрузках.');
     } else {
       setStatus('history', `Найдено записей: ${historyRows.length}. Дата: ${maxDate.toLocaleDateString('ru-RU')}.`);
-      renderRows('history', historyRows, ['exportDateText', 'fio', 'department', 'position', 'lastPassDateText', 'state', 'reason', 'status']);
+      renderRows('history', historyRows, ['exportDateText', 'fio', 'firstSeenDateText', 'entryCountText', 'department', 'position', 'lastPassDateText', 'state', 'reason', 'status']);
     }
 
     if (!peopleOnMaxDate.size) {
