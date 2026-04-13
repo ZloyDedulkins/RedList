@@ -1,7 +1,7 @@
 const CONFIG = {
   spreadsheetId: '1QZDUhkwln01ymUqJlPf6RUmMyEvpMHvKpZLCfrRB8ek',
-  mainSheetName: 'Лист1',
-  bridgeSheetName: 'Мост (наименования подразделений)'
+  mainSheetName: 'Список',
+  bridgeSheetName: 'Мост (Имена подразделений)'
 };
 
 const statusEl = document.getElementById('status');
