@@ -152,8 +152,8 @@ function buildBridgeMap(bridgeRows) {
   if (!bridgeRows.length) return new Map();
 
   const sample = bridgeRows[0];
-  const sourceKey = findColumnName(sample, ['исход', 'raw', 'как в']);
-  const targetKey = findColumnName(sample, ['подраздел', 'норм', 'целев', 'итог']);
+  const sourceKey = findColumnName(sample, ['Локация', 'raw', 'как в']);
+  const targetKey = findColumnName(sample, ['Name', 'норм', 'целев', 'итог']);
 
   const keys = Object.keys(sample);
   const fallbackSource = keys[0];
@@ -205,10 +205,10 @@ async function init() {
     }
 
     const sample = mainRows[0];
-    const fioKey = findColumnName(sample, ['фио', 'сотруд']);
-    const dateKey = findColumnName(sample, ['дата']);
+    const fioKey = findColumnName(sample, ['Физическое лицо', 'сотруд']);
+    const dateKey = findColumnName(sample, ['Дата выгрузки']);
     const commentKey = findColumnName(sample, ['коммент']);
-    const departmentKey = findColumnName(sample, ['подраздел', 'отдел', 'департамент']);
+    const departmentKey = findColumnName(sample, ['Подразделение', 'отдел', 'департамент']);
 
     if (!fioKey || !dateKey || !commentKey || !departmentKey) {
       setStatus('Не удалось автоматически определить нужные столбцы. Проверьте названия колонок.', true);
