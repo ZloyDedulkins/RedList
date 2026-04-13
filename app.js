@@ -15,6 +15,9 @@ const CONFIG = {
 };
 
 const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+const tabOrder = ['main', 'history'];
+const tabPrevBtn = document.getElementById('tabPrevBtn');
+const tabNextBtn = document.getElementById('tabNextBtn');
 const tabPanels = {
   main: document.getElementById('tabMain'),
   history: document.getElementById('tabHistory')
@@ -222,21 +225,39 @@ function renderRows(tab, rows, columns) {
   resultSectionEl.hidden = false;
 }
 
+function activateTab(tabKey) {
+  tabButtons.forEach((item) => {
+    const isActive = item.dataset.tab === tabKey;
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-selected', String(isActive));
+  });
+
+  Object.entries(tabPanels).forEach(([currentTabKey, panel]) => {
+    panel.hidden = currentTabKey !== tabKey;
+  });
+}
+
+function switchTabByArrow(direction) {
+  const currentIndex = tabButtons.findIndex((button) => button.classList.contains('active'));
+  const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex;
+  const nextIndex = (safeCurrentIndex + direction + tabOrder.length) % tabOrder.length;
+  activateTab(tabOrder[nextIndex]);
+}
+
 function setupTabs() {
   tabButtons.forEach((button) => {
-    button.addEventListener('click', () => {
-      const activeTab = button.dataset.tab;
-      tabButtons.forEach((item) => {
-        const isActive = item === button;
-        item.classList.toggle('active', isActive);
-        item.setAttribute('aria-selected', String(isActive));
-      });
-
-      Object.entries(tabPanels).forEach(([tabKey, panel]) => {
-        panel.hidden = tabKey !== activeTab;
-      });
-    });
+    button.addEventListener('click', () => activateTab(button.dataset.tab));
   });
+
+  tabPrevBtn?.addEventListener('click', () => switchTabByArrow(-1));
+  tabNextBtn?.addEventListener('click', () => switchTabByArrow(1));
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') switchTabByArrow(-1);
+    if (event.key === 'ArrowRight') switchTabByArrow(1);
+  });
+
+  activateTab(tabOrder[0]);
 }
 
 async function init() {

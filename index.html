@@ -10,13 +10,17 @@
   <main class="container">
     <h1>Перечень сотрудников, по которым не поступила обратная связь</h1>
 
-    <div class="tabs" role="tablist" aria-label="Разделы отчёта">
-      <button class="tab-btn active" id="tabBtnMain" type="button" role="tab" aria-controls="tabMain" aria-selected="true" data-tab="main">
-        Без обратной связи
-      </button>
-      <button class="tab-btn" id="tabBtnHistory" type="button" role="tab" aria-controls="tabHistory" aria-selected="false" data-tab="history">
-        Были ранее в других списках
-      </button>
+    <div class="tabs-nav">
+      <button class="tab-arrow" id="tabPrevBtn" type="button" aria-label="Предыдущая вкладка">←</button>
+      <div class="tabs" role="tablist" aria-label="Разделы отчёта">
+        <button class="tab-btn active" id="tabBtnMain" type="button" role="tab" aria-controls="tabMain" aria-selected="true" data-tab="main">
+          Без обратной связи
+        </button>
+        <button class="tab-btn" id="tabBtnHistory" type="button" role="tab" aria-controls="tabHistory" aria-selected="false" data-tab="history">
+          Были ранее в других списках
+        </button>
+      </div>
+      <button class="tab-arrow" id="tabNextBtn" type="button" aria-label="Следующая вкладка">→</button>
     </div>
 
     <section class="tab-panel" id="tabMain" role="tabpanel" aria-labelledby="tabBtnMain">
