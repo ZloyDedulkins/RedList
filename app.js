@@ -21,6 +21,23 @@ function normalizeKey(value) {
   return String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
+function createDepartmentLookupKeys(value) {
+  const base = normalizeKey(value);
+  if (!base) return [];
+
+  const compact = base
+    .replace(/\u00a0/g, ' ')
+    .replace(/ё/g, 'е')
+    .replace(/[«»"'`]/g, '')
+    .replace(/[–—−-]+/g, ' ')
+    .replace(/[(){}[\],.;:/\\|]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const noSpaces = compact.replace(/\s+/g, '');
+  return [...new Set([base, compact, noSpaces].filter(Boolean))];
+}
+
 function parseGoogleVisualization(text) {
   const start = text.indexOf('{');
   const end = text.lastIndexOf('}');
