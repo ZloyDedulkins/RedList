@@ -7,35 +7,37 @@ const CONFIG = {
     date: 'Дата выгрузки',
     department: 'Подразделение',
     position: 'Должность',
+    state: 'Состояние',
     reason: 'Причина',
     status: 'Статус',
     lastPassDate: 'Дата последнего прохода'
   }
 };
 
-const statusEl = document.getElementById('status');
-const resultSectionEl = document.getElementById('resultSection');
-const resultBodyEl = document.getElementById('resultBody');
+const tabButtons = Array.from(document.querySelectorAll('.tab-btn'));
+const tabOrder = ['main', 'history'];
+const tabPrevBtn = document.getElementById('tabPrevBtn');
+const tabNextBtn = document.getElementById('tabNextBtn');
+const tabPanels = {
+  main: document.getElementById('tabMain'),
+  history: document.getElementById('tabHistory')
+};
+
+const ui = {
+  main: {
+    statusEl: document.getElementById('statusMain'),
+    resultSectionEl: document.getElementById('resultSectionMain'),
+    resultBodyEl: document.getElementById('resultBodyMain')
+  },
+  history: {
+    statusEl: document.getElementById('statusHistory'),
+    resultSectionEl: document.getElementById('resultSectionHistory'),
+    resultBodyEl: document.getElementById('resultBodyHistory')
+  }
+};
 
 function normalizeKey(value) {
   return String(value ?? '').trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
-function createDepartmentLookupKeys(value) {
-  const base = normalizeKey(value);
-  if (!base) return [];
-
-  const compact = base
-    .replace(/\u00a0/g, ' ')
-    .replace(/ё/g, 'е')
-    .replace(/[«»"'`]/g, '')
-    .replace(/[–—−-]+/g, ' ')
-    .replace(/[(){}[\],.;:/\\|]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  const noSpaces = compact.replace(/\s+/g, '');
-  return [...new Set([base, compact, noSpaces].filter(Boolean))];
 }
 
 function parseGoogleVisualization(text) {
@@ -50,9 +52,7 @@ function parseGoogleVisualization(text) {
 async function fetchWorksheetTitles() {
   const url = `https://spreadsheets.google.com/feeds/worksheets/${CONFIG.spreadsheetId}/public/basic?alt=json`;
   const response = await fetch(url);
-  if (!response.ok) {
-    return [];
-  }
+  if (!response.ok) return [];
 
   const json = await response.json();
   const entries = json.feed?.entry ?? [];
@@ -102,19 +102,22 @@ async function fetchSheet(sheetConfig) {
   const url = buildGvizUrl({ sheetName: resolvedName, sheetGid });
   const response = await fetch(url);
   if (!response.ok) {
-    const titlesHint = availableSheets.length
-      ? `. Доступные листы: ${availableSheets.join(', ')}`
-      : '';
+    const titlesHint = availableSheets.length ? `. Доступные листы: ${availableSheets.join(', ')}` : '';
     throw new Error(`Ошибка загрузки листа «${sheetName}»: ${response.status}${titlesHint}`);
   }
+
   const text = await response.text();
   const json = parseGoogleVisualization(text);
+
   if (json.status === 'error') {
-    throw new Error(`Google Sheets вернул ошибку для листа «${sheetName}»: ${json.errors?.[0]?.detailed_message || json.errors?.[0]?.message || 'неизвестная ошибка'}`);
+    const details = json.errors?.[0]?.detailed_message || json.errors?.[0]?.message || 'неизвестная ошибка';
+    throw new Error(`Google Sheets вернул ошибку для листа «${sheetName}»: ${details}`);
   }
+
   if (!json.table?.cols || !json.table?.rows) {
-    throw new Error(`Лист «${sheetName}» не содержит читаемой таблицы. Проверьте доступ (\"Anyone with the link\") и корректность вкладки.`);
+    throw new Error(`Лист «${sheetName}» не содержит читаемой таблицы. Проверьте доступ ("Anyone with the link") и корректность вкладки.`);
   }
+
   const cols = json.table.cols.map((c, idx) => ({
     key: c.label || c.id || `col_${idx}`,
     index: idx
@@ -147,8 +150,10 @@ function findExactColumnName(sampleRow, expectedName) {
   return keys.find((key) => normalizeKey(key) === normalizedExpected) || null;
 }
 
-function resolveColumnName(sampleRow, expectedName, aliases) {
-  return findExactColumnName(sampleRow, expectedName) || findColumnName(sampleRow, aliases);
+function resolveColumnName(sampleRow, expectedName, aliases, required = true) {
+  const resolved = findExactColumnName(sampleRow, expectedName) || findColumnName(sampleRow, aliases);
+  if (!required) return resolved;
+  return resolved;
 }
 
 function parseDate(value) {
@@ -178,31 +183,8 @@ function sameDay(a, b) {
     a.getDate() === b.getDate();
 }
 
-function isCommentEmpty(comment) {
-  return String(comment ?? '').trim() === '';
-}
-
-function setStatus(message, isError = false) {
-  statusEl.textContent = message;
-  statusEl.classList.toggle('error', isError);
-}
-
-function renderRows(rows) {
-  resultBodyEl.innerHTML = '';
-
-  rows.forEach((row) => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row.fio}</td>
-      <td>${row.department}</td>
-      <td>${row.position}</td>
-      <td>${row.lastPassDateText}</td>
-      <td>${row.daysSinceLastPassText}</td>
-    `;
-    resultBodyEl.appendChild(tr);
-  });
-
-  resultSectionEl.hidden = false;
+function isCommentEmpty(value) {
+  return String(value ?? '').trim() === '';
 }
 
 function getDaysSince(date) {
@@ -215,12 +197,78 @@ function getDaysSince(date) {
   return Math.floor(diffMs / (1000 * 60 * 60 * 24));
 }
 
+function toDisplay(value) {
+  const text = String(value ?? '').trim();
+  return text || '—';
+}
+
+function toRuDateOrDash(date) {
+  return date ? date.toLocaleDateString('ru-RU') : '—';
+}
+
+function setStatus(tab, message, isError = false) {
+  const { statusEl } = ui[tab];
+  statusEl.textContent = message;
+  statusEl.classList.toggle('error', isError);
+}
+
+function renderRows(tab, rows, columns) {
+  const { resultBodyEl, resultSectionEl } = ui[tab];
+  resultBodyEl.innerHTML = '';
+
+  rows.forEach((row) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = columns.map((column) => `<td>${row[column]}</td>`).join('');
+    resultBodyEl.appendChild(tr);
+  });
+
+  resultSectionEl.hidden = false;
+}
+
+function activateTab(tabKey) {
+  tabButtons.forEach((item) => {
+    const isActive = item.dataset.tab === tabKey;
+    item.classList.toggle('active', isActive);
+    item.setAttribute('aria-selected', String(isActive));
+  });
+
+  Object.entries(tabPanels).forEach(([currentTabKey, panel]) => {
+    panel.hidden = currentTabKey !== tabKey;
+  });
+}
+
+function switchTabByArrow(direction) {
+  const currentIndex = tabButtons.findIndex((button) => button.classList.contains('active'));
+  const safeCurrentIndex = currentIndex === -1 ? 0 : currentIndex;
+  const nextIndex = (safeCurrentIndex + direction + tabOrder.length) % tabOrder.length;
+  activateTab(tabOrder[nextIndex]);
+}
+
+function setupTabs() {
+  tabButtons.forEach((button) => {
+    button.addEventListener('click', () => activateTab(button.dataset.tab));
+  });
+
+  tabPrevBtn?.addEventListener('click', () => switchTabByArrow(-1));
+  tabNextBtn?.addEventListener('click', () => switchTabByArrow(1));
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowLeft') switchTabByArrow(-1);
+    if (event.key === 'ArrowRight') switchTabByArrow(1);
+  });
+
+  activateTab(tabOrder[0]);
+}
+
 async function init() {
+  setupTabs();
+
   try {
     const mainRows = await fetchSheet({ name: CONFIG.mainSheetName, gid: CONFIG.mainSheetGid });
 
     if (!mainRows.length) {
-      setStatus('Основной лист пуст.', true);
+      setStatus('main', 'Основной лист пуст.', true);
+      setStatus('history', 'Основной лист пуст.', true);
       return;
     }
 
@@ -229,12 +277,15 @@ async function init() {
     const dateKey = resolveColumnName(sample, CONFIG.mainColumns.date, ['дата', 'выгрузк', 'upload']);
     const departmentKey = resolveColumnName(sample, CONFIG.mainColumns.department, ['подраздел', 'отдел', 'департамент', 'локац', 'department']);
     const positionKey = resolveColumnName(sample, CONFIG.mainColumns.position, ['должност', 'position', 'role']);
+    const stateKey = resolveColumnName(sample, CONFIG.mainColumns.state, ['состояни', 'state'], false);
     const reasonKey = resolveColumnName(sample, CONFIG.mainColumns.reason, ['причин', 'reason']);
     const statusKey = resolveColumnName(sample, CONFIG.mainColumns.status, ['статус', 'status']);
     const lastPassDateKey = resolveColumnName(sample, CONFIG.mainColumns.lastPassDate, ['последнего прохода', 'последн', 'проход', 'last pass']);
 
     if (!fioKey || !dateKey || !departmentKey || !positionKey || !reasonKey || !statusKey || !lastPassDateKey) {
-      setStatus(`Не удалось определить нужные столбцы. Найдены колонки: ${Object.keys(sample).join(', ')}.`, true);
+      const columns = Object.keys(sample).join(', ');
+      setStatus('main', `Не удалось определить нужные столбцы. Найдены колонки: ${columns}.`, true);
+      setStatus('history', `Не удалось определить нужные столбцы. Найдены колонки: ${columns}.`, true);
       return;
     }
 
@@ -243,48 +294,74 @@ async function init() {
       .filter((item) => item.parsedDate);
 
     if (!rowsWithDate.length) {
-      setStatus('В основном листе нет корректных дат.', true);
+      setStatus('main', 'В основном листе нет корректных дат.', true);
+      setStatus('history', 'В основном листе нет корректных дат.', true);
       return;
     }
 
-    const maxDate = rowsWithDate.reduce((max, item) =>
-      item.parsedDate > max ? item.parsedDate : max,
-      rowsWithDate[0].parsedDate
-    );
+    const maxDate = rowsWithDate.reduce((max, item) => (item.parsedDate > max ? item.parsedDate : max), rowsWithDate[0].parsedDate);
 
-    const resultRows = rowsWithDate
-      .filter(({ row, parsedDate }) =>
-        sameDay(parsedDate, maxDate) &&
-        isCommentEmpty(row[reasonKey]) &&
-        isCommentEmpty(row[statusKey])
-      )
+    const maxDateRows = rowsWithDate.filter(({ parsedDate }) => sameDay(parsedDate, maxDate));
+
+    const noFeedbackRows = maxDateRows
+      .filter(({ row }) => isCommentEmpty(row[reasonKey]) && isCommentEmpty(row[statusKey]))
       .map(({ row }) => {
-        const department = String(row[departmentKey] ?? '').trim() || '—';
-        const fio = String(row[fioKey] ?? '').trim() || '—';
-        const position = String(row[positionKey] ?? '').trim() || '—';
         const lastPassDate = parseDate(row[lastPassDateKey]);
         const daysSinceLastPass = getDaysSince(lastPassDate);
-        const lastPassDateText = lastPassDate ? lastPassDate.toLocaleDateString('ru-RU') : '—';
-        const daysSinceLastPassText = Number.isInteger(daysSinceLastPass) ? String(daysSinceLastPass) : '—';
 
         return {
-          fio,
-          department,
-          position,
-          lastPassDateText,
-          daysSinceLastPassText
+          fio: toDisplay(row[fioKey]),
+          department: toDisplay(row[departmentKey]),
+          position: toDisplay(row[positionKey]),
+          lastPassDateText: toRuDateOrDash(lastPassDate),
+          daysSinceLastPassText: Number.isInteger(daysSinceLastPass) ? String(daysSinceLastPass) : '—'
         };
       });
 
-    if (!resultRows.length) {
-      setStatus('На максимальную дату нет записей с пустыми полями «Причина» и «Статус».');
-      return;
+    if (!noFeedbackRows.length) {
+      setStatus('main', 'На максимальную дату нет записей с пустыми полями «Причина» и «Статус».');
+    } else {
+      setStatus('main', `Найдено записей: ${noFeedbackRows.length}. Дата: ${maxDate.toLocaleDateString('ru-RU')}.`);
+      renderRows('main', noFeedbackRows, ['fio', 'department', 'position', 'lastPassDateText', 'daysSinceLastPassText']);
     }
 
-    setStatus(`Найдено записей: ${resultRows.length}. Дата: ${maxDate.toLocaleDateString('ru-RU')}.`);
-    renderRows(resultRows);
+    const peopleOnMaxDate = new Set(
+      maxDateRows.map(({ row }) => normalizeKey(row[fioKey])).filter(Boolean)
+    );
+
+    const peopleOnEarlierDates = new Set(
+      rowsWithDate
+        .filter(({ parsedDate }) => parsedDate < maxDate)
+        .map(({ row }) => normalizeKey(row[fioKey]))
+        .filter(Boolean)
+    );
+
+    const historyRows = maxDateRows
+      .filter(({ row }) => peopleOnEarlierDates.has(normalizeKey(row[fioKey])))
+      .map(({ row, parsedDate }) => ({
+        exportDateText: toRuDateOrDash(parsedDate),
+        fio: toDisplay(row[fioKey]),
+        department: toDisplay(row[departmentKey]),
+        position: toDisplay(row[positionKey]),
+        lastPassDateText: toRuDateOrDash(parseDate(row[lastPassDateKey])),
+        state: stateKey ? toDisplay(row[stateKey]) : '—',
+        reason: toDisplay(row[reasonKey]),
+        status: toDisplay(row[statusKey])
+      }));
+
+    if (!historyRows.length) {
+      setStatus('history', 'На максимальную дату нет сотрудников, которые встречались в более ранних выгрузках.');
+    } else {
+      setStatus('history', `Найдено записей: ${historyRows.length}. Дата: ${maxDate.toLocaleDateString('ru-RU')}.`);
+      renderRows('history', historyRows, ['exportDateText', 'fio', 'department', 'position', 'lastPassDateText', 'state', 'reason', 'status']);
+    }
+
+    if (!peopleOnMaxDate.size) {
+      setStatus('history', 'На максимальную дату нет сотрудников для анализа предыдущих выгрузок.');
+    }
   } catch (error) {
-    setStatus(`Ошибка: ${error.message}`, true);
+    setStatus('main', `Ошибка: ${error.message}`, true);
+    setStatus('history', `Ошибка: ${error.message}`, true);
   }
 }
 
