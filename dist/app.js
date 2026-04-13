@@ -5,9 +5,7 @@ const CONFIG = {
   feedbackForm: {
     baseUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfXFCl2TKFHFKdXwYQmIsVpKpSvzUJE4YkaDHkHHzyVOb8yAw/viewform',
     fioEntryId: '1750988741',
-    staticEntries: {
-      '1994207537': 'Курил'
-    }
+    
   },
   mainColumns: {
     fio: 'Физическое лицо',
