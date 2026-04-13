@@ -103,9 +103,8 @@ function resolveFeedbackFormEntryId() {
 function buildFeedbackFormUrl(fio) {
   const entryId = resolveFeedbackFormEntryId();
   const params = new URLSearchParams({
-    usp: 'pp_url',
-    [`entry.${entryId}`]: fio,
-    [`entry.${entryId}_sentinel`]: ''
+    usp: 'header',
+    [`entry.${entryId}`]: fio
   });
 
   return `${CONFIG.feedbackForm.baseUrl}?${params.toString()}`;
