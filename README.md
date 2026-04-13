@@ -20,5 +20,7 @@ python3 -m http.server 8080
 В `app.js` проверьте значения:
 - `CONFIG.mainSheetName` — имя основного листа (по умолчанию `Список`)
 - `CONFIG.bridgeSheetName` — имя моста (`Мост (Имена подразделений)`)
+- `CONFIG.mainSheetGid` и `CONFIG.bridgeSheetGid` — если указать `gid`, загрузка пойдёт по `gid` (это надёжнее, чем по имени листа)
 
 Если ваш основной лист называется иначе, поменяйте `mainSheetName`.
+Если по имени лист всё равно не находится, укажите `gid` вкладки (число из URL Google Sheets после `gid=`).

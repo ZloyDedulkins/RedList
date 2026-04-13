@@ -1,7 +1,9 @@
 const CONFIG = {
   spreadsheetId: '1QZDUhkwln01ymUqJlPf6RUmMyEvpMHvKpZLCfrRB8ek',
   mainSheetName: 'Список',
-  bridgeSheetName: 'Мост (Имена подразделений)'
+  bridgeSheetName: 'Мост (Имена подразделений)',
+  mainSheetGid: null,
+  bridgeSheetGid: null
 };
 
 const statusEl = document.getElementById('status');
@@ -54,9 +56,26 @@ async function resolveActualSheetName(sheetName) {
   };
 }
 
-async function fetchSheetByName(sheetName) {
-  const { resolvedName, availableSheets } = await resolveActualSheetName(sheetName);
-  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(resolvedName)}`;
+function buildGvizUrl({ sheetName, sheetGid }) {
+  const params = new URLSearchParams({ tqx: 'out:json' });
+  if (sheetGid !== null && sheetGid !== undefined && String(sheetGid).trim() !== '') {
+    params.set('gid', String(sheetGid).trim());
+  } else {
+    params.set('sheet', sheetName);
+  }
+  return `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?${params.toString()}`;
+}
+
+async function fetchSheet(sheetConfig) {
+  const config = typeof sheetConfig === 'string' ? { name: sheetConfig } : sheetConfig;
+  const sheetName = config.name;
+  const sheetGid = config.gid;
+
+  const { resolvedName, availableSheets } = sheetGid !== null && sheetGid !== undefined && String(sheetGid).trim() !== ''
+    ? { resolvedName: sheetName, availableSheets: [] }
+    : await resolveActualSheetName(sheetName);
+
+  const url = buildGvizUrl({ sheetName: resolvedName, sheetGid });
   const response = await fetch(url);
   if (!response.ok) {
     const titlesHint = availableSheets.length
@@ -66,6 +85,12 @@ async function fetchSheetByName(sheetName) {
   }
   const text = await response.text();
   const json = parseGoogleVisualization(text);
+  if (json.status === 'error') {
+    throw new Error(`Google Sheets вернул ошибку для листа «${sheetName}»: ${json.errors?.[0]?.detailed_message || json.errors?.[0]?.message || 'неизвестная ошибка'}`);
+  }
+  if (!json.table?.cols || !json.table?.rows) {
+    throw new Error(`Лист «${sheetName}» не содержит читаемой таблицы. Проверьте доступ (\"Anyone with the link\") и корректность вкладки.`);
+  }
   const cols = json.table.cols.map((c, idx) => ({
     key: c.label || c.id || `col_${idx}`,
     index: idx
@@ -170,8 +195,8 @@ function renderRows(rows) {
 async function init() {
   try {
     const [mainRows, bridgeRows] = await Promise.all([
-      fetchSheetByName(CONFIG.mainSheetName),
-      fetchSheetByName(CONFIG.bridgeSheetName)
+      fetchSheet({ name: CONFIG.mainSheetName, gid: CONFIG.mainSheetGid }),
+      fetchSheet({ name: CONFIG.bridgeSheetName, gid: CONFIG.bridgeSheetGid })
     ]);
 
     if (!mainRows.length) {
