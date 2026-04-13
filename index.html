@@ -8,7 +8,7 @@
 </head>
 <body>
   <main class="container">
-    <h1>Перечень сотрудников, по которым не поступила обратная связь</h1>
+    <h1>Сотрудники без отметок</h1>
 
     <div class="tabs" role="tablist" aria-label="Разделы отчёта">
       <button class="tab-btn active" id="tabBtnMain" type="button" role="tab" aria-controls="tabMain" aria-selected="true" data-tab="main">
@@ -21,7 +21,7 @@
 
     <section class="tab-panel" id="tabMain" role="tabpanel" aria-labelledby="tabBtnMain">
       <p class="hint">
-        Показываются записи на максимальную дату, у которых одновременно пустые поля «Причина» и «Статус».
+        Сотрудники, по которым не поступила обратная связь.
       </p>
       <section class="status" id="statusMain">Загрузка данных…</section>
       <section class="table-wrap" hidden id="resultSectionMain">
@@ -42,7 +42,7 @@
 
     <section class="tab-panel" id="tabHistory" role="tabpanel" aria-labelledby="tabBtnHistory" hidden>
       <p class="hint">
-        Показываются сотрудники, которые есть в списке на максимальную дату и встречались в записях на более ранние даты.
+        Список сотрудников, которые уже не в первый раз попадают в списки.
       </p>
       <section class="status" id="statusHistory">Загрузка данных…</section>
       <section class="table-wrap" hidden id="resultSectionHistory">
