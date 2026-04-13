@@ -9,25 +9,59 @@
 <body>
   <main class="container">
     <h1>Перечень сотрудников, по которым не поступила обратная связь</h1>
-    <p class="hint">
-      Показываются записи на максимальную дату, у которых одновременно пустые поля «Причина» и «Статус».
-    </p>
 
-    <section class="status" id="status">Загрузка данных…</section>
+    <div class="tabs" role="tablist" aria-label="Разделы отчёта">
+      <button class="tab-btn active" id="tabBtnMain" type="button" role="tab" aria-controls="tabMain" aria-selected="true" data-tab="main">
+        Без обратной связи
+      </button>
+      <button class="tab-btn" id="tabBtnHistory" type="button" role="tab" aria-controls="tabHistory" aria-selected="false" data-tab="history">
+        Были ранее в других списках
+      </button>
+    </div>
 
-    <section class="table-wrap" hidden id="resultSection">
-      <table>
-        <thead>
-          <tr>
-            <th>Физическое лицо</th>
-            <th>Подразделение</th>
-            <th>Должность</th>
-            <th>Дата последнего прохода</th>
-            <th>Количество дней с последнего прохода</th>
-          </tr>
-        </thead>
-        <tbody id="resultBody"></tbody>
-      </table>
+    <section class="tab-panel" id="tabMain" role="tabpanel" aria-labelledby="tabBtnMain">
+      <p class="hint">
+        Показываются записи на максимальную дату, у которых одновременно пустые поля «Причина» и «Статус».
+      </p>
+      <section class="status" id="statusMain">Загрузка данных…</section>
+      <section class="table-wrap" hidden id="resultSectionMain">
+        <table>
+          <thead>
+            <tr>
+              <th>Физическое лицо</th>
+              <th>Подразделение</th>
+              <th>Должность</th>
+              <th>Дата последнего прохода</th>
+              <th>Количество дней с последнего прохода</th>
+            </tr>
+          </thead>
+          <tbody id="resultBodyMain"></tbody>
+        </table>
+      </section>
+    </section>
+
+    <section class="tab-panel" id="tabHistory" role="tabpanel" aria-labelledby="tabBtnHistory" hidden>
+      <p class="hint">
+        Показываются сотрудники, которые есть в списке на максимальную дату и встречались в записях на более ранние даты.
+      </p>
+      <section class="status" id="statusHistory">Загрузка данных…</section>
+      <section class="table-wrap" hidden id="resultSectionHistory">
+        <table>
+          <thead>
+            <tr>
+              <th>Дата выгрузки</th>
+              <th>Физическое лицо</th>
+              <th>Подразделение</th>
+              <th>Должность</th>
+              <th>Дата последнего прохода</th>
+              <th>Состояние</th>
+              <th>Причина</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody id="resultBodyHistory"></tbody>
+        </table>
+      </section>
     </section>
   </main>
 
