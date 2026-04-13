@@ -3,7 +3,17 @@ const CONFIG = {
   mainSheetName: 'Список',
   bridgeSheetName: 'Мост (Имена подразделений)',
   mainSheetGid: null,
-  bridgeSheetGid: null
+  bridgeSheetGid: null,
+  mainColumns: {
+    fio: 'Физическое лицо',
+    date: 'Дата выгрузки',
+    department: 'Подразделение',
+    status: 'Статус'
+  },
+  bridgeColumns: {
+    source: 'Локация',
+    target: 'Name'
+  }
 };
 
 const statusEl = document.getElementById('status');
@@ -117,6 +127,16 @@ function findColumnName(sampleRow, aliases) {
   return null;
 }
 
+function findExactColumnName(sampleRow, expectedName) {
+  const keys = Object.keys(sampleRow || {});
+  const normalizedExpected = normalizeKey(expectedName);
+  return keys.find((key) => normalizeKey(key) === normalizedExpected) || null;
+}
+
+function resolveColumnName(sampleRow, expectedName, aliases) {
+  return findExactColumnName(sampleRow, expectedName) || findColumnName(sampleRow, aliases);
+}
+
 function parseDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value;
@@ -152,8 +172,8 @@ function buildBridgeMap(bridgeRows) {
   if (!bridgeRows.length) return new Map();
 
   const sample = bridgeRows[0];
-  const sourceKey = findColumnName(sample, ['Локация', 'raw', 'как в']);
-  const targetKey = findColumnName(sample, ['Name', 'норм', 'целев', 'итог']);
+  const sourceKey = resolveColumnName(sample, CONFIG.bridgeColumns.source, ['локац', 'исход', 'raw', 'как в']);
+  const targetKey = resolveColumnName(sample, CONFIG.bridgeColumns.target, ['name', 'подраздел', 'норм', 'целев', 'итог']);
 
   const keys = Object.keys(sample);
   const fallbackSource = keys[0];
@@ -205,13 +225,13 @@ async function init() {
     }
 
     const sample = mainRows[0];
-    const fioKey = findColumnName(sample, ['Физическое лицо', 'сотруд']);
-    const dateKey = findColumnName(sample, ['Дата выгрузки']);
-    const commentKey = findColumnName(sample, ['коммент']);
-    const departmentKey = findColumnName(sample, ['Подразделение', 'отдел', 'департамент']);
+    const fioKey = resolveColumnName(sample, CONFIG.mainColumns.fio, ['фио', 'сотруд', 'физическ', 'person']);
+    const dateKey = resolveColumnName(sample, CONFIG.mainColumns.date, ['дата', 'выгрузк', 'upload']);
+    const commentKey = resolveColumnName(sample, CONFIG.mainColumns.status, ['коммент', 'статус', 'причин', 'comment', 'status', 'reason']);
+    const departmentKey = resolveColumnName(sample, CONFIG.mainColumns.department, ['подраздел', 'отдел', 'департамент', 'локац', 'department']);
 
     if (!fioKey || !dateKey || !commentKey || !departmentKey) {
-      setStatus('Не удалось автоматически определить нужные столбцы. Проверьте названия колонок.', true);
+      setStatus(`Не удалось определить нужные столбцы. Найдены колонки: ${Object.keys(sample).join(', ')}.`, true);
       return;
     }
 
