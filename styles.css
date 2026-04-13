@@ -92,3 +92,12 @@ th {
 tbody tr:nth-child(even) {
   background: #f8fafc;
 }
+
+.person-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.person-link:hover {
+  color: #1e40af;
+}

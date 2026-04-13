@@ -2,6 +2,10 @@ const CONFIG = {
   spreadsheetId: '1QZDUhkwln01ymUqJlPf6RUmMyEvpMHvKpZLCfrRB8ek',
   mainSheetName: 'Список',
   mainSheetGid: null,
+  feedbackForm: {
+    baseUrl: 'https://docs.google.com/forms/d/e/1FAIpQLSfXFCl2TKFHFKdXwYQmIsVpKpSvzUJE4YkaDHkHHzyVOb8yAw/viewform',
+    fioEntryId: '2005620554'
+  },
   mainColumns: {
     fio: 'Физическое лицо',
     date: 'Дата выгрузки',
@@ -85,6 +89,24 @@ function buildGvizUrl({ sheetName, sheetGid }) {
     params.set('sheet', sheetName);
   }
   return `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?${params.toString()}`;
+}
+
+function buildFeedbackFormUrl(fio) {
+  const params = new URLSearchParams({
+    usp: 'pp_url',
+    [`entry.${CONFIG.feedbackForm.fioEntryId}`]: fio
+  });
+
+  return `${CONFIG.feedbackForm.baseUrl}?${params.toString()}`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 async function fetchSheet(sheetConfig) {
@@ -237,7 +259,15 @@ function renderRows(tab, rows, columns) {
 
   rows.forEach((row) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = columns.map((column) => `<td>${row[column]}</td>`).join('');
+    tr.innerHTML = columns.map((column) => {
+      const value = row[column];
+      if (value && typeof value === 'object' && value.rawHtml) {
+        return `<td>${value.rawHtml}</td>`;
+      }
+
+      return `<td>${escapeHtml(value)}</td>`;
+    }).join('');
+
     resultBodyEl.appendChild(tr);
   });
 
@@ -310,9 +340,12 @@ async function init() {
       .map(({ row }) => {
         const lastPassDate = parseDate(row[lastPassDateKey]);
         const daysSinceLastPass = getDaysSince(lastPassDate);
+        const fio = toDisplay(row[fioKey]);
 
         return {
-          fio: toDisplay(row[fioKey]),
+          fio: {
+            rawHtml: `<a class="person-link" href="${buildFeedbackFormUrl(fio)}" target="_blank" rel="noopener noreferrer">${escapeHtml(fio)}</a>`
+          },
           department: toDisplay(row[departmentKey]),
           position: toDisplay(row[positionKey]),
           lastPassDateText: toRuDateOrDash(lastPassDate),
