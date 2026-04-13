@@ -21,11 +21,48 @@ function parseGoogleVisualization(text) {
   return JSON.parse(text.slice(start, end + 1));
 }
 
-async function fetchSheetByName(sheetName) {
-  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(sheetName)}`;
+async function fetchWorksheetTitles() {
+  const url = `https://spreadsheets.google.com/feeds/worksheets/${CONFIG.spreadsheetId}/public/basic?alt=json`;
   const response = await fetch(url);
   if (!response.ok) {
-    throw new Error(`Ошибка загрузки листа «${sheetName}»: ${response.status}`);
+    return [];
+  }
+
+  const json = await response.json();
+  const entries = json.feed?.entry ?? [];
+  return entries
+    .map((entry) => String(entry.title?.$t ?? '').trim())
+    .filter(Boolean);
+}
+
+async function resolveActualSheetName(sheetName) {
+  const worksheetTitles = await fetchWorksheetTitles();
+  if (!worksheetTitles.length) {
+    return { resolvedName: sheetName, availableSheets: [] };
+  }
+
+  const normalizedRequested = normalizeKey(sheetName);
+  const exact = worksheetTitles.find((title) => title === sheetName);
+  if (exact) {
+    return { resolvedName: exact, availableSheets: worksheetTitles };
+  }
+
+  const normalizedMatch = worksheetTitles.find((title) => normalizeKey(title) === normalizedRequested);
+  return {
+    resolvedName: normalizedMatch || sheetName,
+    availableSheets: worksheetTitles
+  };
+}
+
+async function fetchSheetByName(sheetName) {
+  const { resolvedName, availableSheets } = await resolveActualSheetName(sheetName);
+  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spreadsheetId}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(resolvedName)}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    const titlesHint = availableSheets.length
+      ? `. Доступные листы: ${availableSheets.join(', ')}`
+      : '';
+    throw new Error(`Ошибка загрузки листа «${sheetName}»: ${response.status}${titlesHint}`);
   }
   const text = await response.text();
   const json = parseGoogleVisualization(text);
