@@ -1,18 +1,15 @@
 const CONFIG = {
   spreadsheetId: '1QZDUhkwln01ymUqJlPf6RUmMyEvpMHvKpZLCfrRB8ek',
   mainSheetName: 'Список',
-  bridgeSheetName: 'Мост (Имена подразделений)',
   mainSheetGid: null,
-  bridgeSheetGid: null,
   mainColumns: {
     fio: 'Физическое лицо',
     date: 'Дата выгрузки',
     department: 'Подразделение',
-    status: 'Статус'
-  },
-  bridgeColumns: {
-    source: 'Локация',
-    target: 'Name'
+    position: 'Должность',
+    reason: 'Причина',
+    status: 'Статус',
+    lastPassDate: 'Дата последнего прохода'
   }
 };
 
@@ -168,29 +165,6 @@ function isCommentEmpty(comment) {
   return String(comment ?? '').trim() === '';
 }
 
-function buildBridgeMap(bridgeRows) {
-  if (!bridgeRows.length) return new Map();
-
-  const sample = bridgeRows[0];
-  const sourceKey = resolveColumnName(sample, CONFIG.bridgeColumns.source, ['локац', 'исход', 'raw', 'как в']);
-  const targetKey = resolveColumnName(sample, CONFIG.bridgeColumns.target, ['name', 'подраздел', 'норм', 'целев', 'итог']);
-
-  const keys = Object.keys(sample);
-  const fallbackSource = keys[0];
-  const fallbackTarget = keys[1] || keys[0];
-
-  const map = new Map();
-  bridgeRows.forEach((row) => {
-    const src = normalizeKey(row[sourceKey || fallbackSource]);
-    const dst = String(row[targetKey || fallbackTarget] ?? '').trim();
-    if (src && dst) {
-      map.set(src, dst);
-    }
-  });
-
-  return map;
-}
-
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
   statusEl.classList.toggle('error', isError);
@@ -204,7 +178,9 @@ function renderRows(rows) {
     tr.innerHTML = `
       <td>${row.fio}</td>
       <td>${row.department}</td>
-      <td>${row.formatText}</td>
+      <td>${row.position}</td>
+      <td>${row.lastPassDateText}</td>
+      <td>${row.daysSinceLastPassText}</td>
     `;
     resultBodyEl.appendChild(tr);
   });
@@ -212,12 +188,19 @@ function renderRows(rows) {
   resultSectionEl.hidden = false;
 }
 
+function getDaysSince(date) {
+  if (!date) return null;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const source = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffMs = today.getTime() - source.getTime();
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+}
+
 async function init() {
   try {
-    const [mainRows, bridgeRows] = await Promise.all([
-      fetchSheet({ name: CONFIG.mainSheetName, gid: CONFIG.mainSheetGid }),
-      fetchSheet({ name: CONFIG.bridgeSheetName, gid: CONFIG.bridgeSheetGid })
-    ]);
+    const mainRows = await fetchSheet({ name: CONFIG.mainSheetName, gid: CONFIG.mainSheetGid });
 
     if (!mainRows.length) {
       setStatus('Основной лист пуст.', true);
@@ -227,15 +210,16 @@ async function init() {
     const sample = mainRows[0];
     const fioKey = resolveColumnName(sample, CONFIG.mainColumns.fio, ['фио', 'сотруд', 'физическ', 'person']);
     const dateKey = resolveColumnName(sample, CONFIG.mainColumns.date, ['дата', 'выгрузк', 'upload']);
-    const commentKey = resolveColumnName(sample, CONFIG.mainColumns.status, ['коммент', 'статус', 'причин', 'comment', 'status', 'reason']);
     const departmentKey = resolveColumnName(sample, CONFIG.mainColumns.department, ['подраздел', 'отдел', 'департамент', 'локац', 'department']);
+    const positionKey = resolveColumnName(sample, CONFIG.mainColumns.position, ['должност', 'position', 'role']);
+    const reasonKey = resolveColumnName(sample, CONFIG.mainColumns.reason, ['причин', 'reason']);
+    const statusKey = resolveColumnName(sample, CONFIG.mainColumns.status, ['статус', 'status']);
+    const lastPassDateKey = resolveColumnName(sample, CONFIG.mainColumns.lastPassDate, ['последнего прохода', 'последн', 'проход', 'last pass']);
 
-    if (!fioKey || !dateKey || !commentKey || !departmentKey) {
+    if (!fioKey || !dateKey || !departmentKey || !positionKey || !reasonKey || !statusKey || !lastPassDateKey) {
       setStatus(`Не удалось определить нужные столбцы. Найдены колонки: ${Object.keys(sample).join(', ')}.`, true);
       return;
     }
-
-    const bridgeMap = buildBridgeMap(bridgeRows);
 
     const rowsWithDate = mainRows
       .map((row) => ({ row, parsedDate: parseDate(row[dateKey]) }))
@@ -252,21 +236,31 @@ async function init() {
     );
 
     const resultRows = rowsWithDate
-      .filter(({ row, parsedDate }) => sameDay(parsedDate, maxDate) && isCommentEmpty(row[commentKey]))
+      .filter(({ row, parsedDate }) =>
+        sameDay(parsedDate, maxDate) &&
+        isCommentEmpty(row[reasonKey]) &&
+        isCommentEmpty(row[statusKey])
+      )
       .map(({ row }) => {
-        const rawDepartment = String(row[departmentKey] ?? '').trim();
-        const department = bridgeMap.get(normalizeKey(rawDepartment)) || rawDepartment || '—';
+        const department = String(row[departmentKey] ?? '').trim() || '—';
         const fio = String(row[fioKey] ?? '').trim() || '—';
+        const position = String(row[positionKey] ?? '').trim() || '—';
+        const lastPassDate = parseDate(row[lastPassDateKey]);
+        const daysSinceLastPass = getDaysSince(lastPassDate);
+        const lastPassDateText = lastPassDate ? lastPassDate.toLocaleDateString('ru-RU') : '—';
+        const daysSinceLastPassText = Number.isInteger(daysSinceLastPass) ? String(daysSinceLastPass) : '—';
 
         return {
           fio,
           department,
-          formatText: `${fio} - ${department}`
+          position,
+          lastPassDateText,
+          daysSinceLastPassText
         };
       });
 
     if (!resultRows.length) {
-      setStatus('На максимальную дату нет записей с пустым комментарием.');
+      setStatus('На максимальную дату нет записей с пустыми полями «Причина» и «Статус».');
       return;
     }
 
