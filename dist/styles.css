@@ -51,30 +51,6 @@ h1 {
   margin-bottom: 20px;
 }
 
-.filters {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-bottom: 16px;
-}
-
-.filter-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 240px;
-  color: #374151;
-  font-size: 14px;
-}
-
-.filter-field select {
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 8px 10px;
-  font: inherit;
-  background: #fff;
-}
-
 .status {
   padding: 12px 14px;
   border-radius: 8px;
