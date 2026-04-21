@@ -259,15 +259,6 @@ function getDepartmentValue(value) {
   return text || '—';
 }
 
-function dateSortDesc(a, b) {
-  return b.getTime() - a.getTime();
-}
-
-function getDepartmentValue(value) {
-  const text = String(value ?? '').trim();
-  return text || '—';
-}
-
 function setStatus(tab, message, isError = false) {
   const { statusEl } = ui[tab];
   statusEl.textContent = message;
@@ -423,7 +414,7 @@ async function init() {
     );
 
     const historyRowsBase = maxDateRows
-      .filter(({ row }) => peopleOnEarlierDates.has(normalizeKey(row[fioKey])))
+      .filter(({ row }) => departmentsOnEarlierDates.has(normalizeKey(row[departmentKey])))
       .map(({ row, parsedDate }) => ({
         exportDateText: toRuDateOrDash(parsedDate),
         fio: toDisplay(row[fioKey]),
