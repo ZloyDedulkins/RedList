@@ -250,26 +250,22 @@ function toRuDateOrDash(date) {
   return date ? date.toLocaleDateString('ru-RU') : '—';
 }
 
-function buildPersonStats(rowsWithDate, fioKey) {
-  const stats = new Map();
+function dateSortDesc(a, b) {
+  return b.getTime() - a.getTime();
+}
 
-  rowsWithDate.forEach(({ row, parsedDate }) => {
-    const personKey = normalizeKey(row[fioKey]);
-    if (!personKey) return;
+function getDepartmentValue(value) {
+  const text = String(value ?? '').trim();
+  return text || '—';
+}
 
-    const existing = stats.get(personKey);
-    if (!existing) {
-      stats.set(personKey, { firstDate: parsedDate, count: 1 });
-      return;
-    }
+function dateSortDesc(a, b) {
+  return b.getTime() - a.getTime();
+}
 
-    if (parsedDate < existing.firstDate) {
-      existing.firstDate = parsedDate;
-    }
-    existing.count += 1;
-  });
-
-  return stats;
+function getDepartmentValue(value) {
+  const text = String(value ?? '').trim();
+  return text || '—';
 }
 
 function dateSortDesc(a, b) {
@@ -391,7 +387,6 @@ async function init() {
 
     const maxDate = rowsWithDate.reduce((max, item) => (item.parsedDate > max ? item.parsedDate : max), rowsWithDate[0].parsedDate);
     const maxDateRows = rowsWithDate.filter(({ parsedDate }) => sameDay(parsedDate, maxDate));
-    const personStats = buildPersonStats(rowsWithDate, fioKey);
 
     const noFeedbackRowsBase = maxDateRows
       .filter(({ row }) => isCommentEmpty(row[reasonKey]) && isCommentEmpty(row[statusKey]))
@@ -432,14 +427,13 @@ async function init() {
     const peopleSeenEarlierByFio = new Set(
       rowsWithDate
         .filter(({ parsedDate }) => parsedDate < maxDate)
-        .map(({ row }) => normalizeKey(row[fioKey]))
+        .map(({ row }) => normalizeKey(row[departmentKey]))
         .filter(Boolean)
     );
 
     const historyRowsBase = maxDateRows
       .filter(({ row }) => peopleSeenEarlierByFio.has(normalizeKey(row[fioKey])))
       .map(({ row, parsedDate }) => ({
-        personKey: normalizeKey(row[fioKey]),
         exportDateText: toRuDateOrDash(parsedDate),
         fio: toDisplay(row[fioKey]),
         firstSeenDateText: '—',
@@ -450,15 +444,7 @@ async function init() {
         state: stateKey ? toDisplay(row[stateKey]) : '—',
         reason: toDisplay(row[reasonKey]),
         status: toDisplay(row[statusKey])
-      }))
-      .map((row) => {
-        const stat = personStats.get(row.personKey);
-        return {
-          ...row,
-          firstSeenDateText: toRuDateOrDash(stat?.firstDate ?? null),
-          entryCountText: Number.isInteger(stat?.count) ? String(stat.count) : '—'
-        };
-      });
+      }));
 
     const historyDepartments = Array.from(new Set(historyRowsBase.map((row) => row.department))).sort((a, b) => a.localeCompare(b, 'ru'));
     fillSelect(ui.history.departmentFilterEl, historyDepartments, 'Все подразделения');
